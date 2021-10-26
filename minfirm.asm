@@ -14,21 +14,6 @@
 .area 0x30 + 8 ; reserved + section 0 offset, address
 Entry:
     mov sp, #0x27000000
-
-    ;Disable caches / mpu
-    mrc p15, 0, r4, c1, c0, 0  ; read control register
-    bic r4, #(1<<12)           ; - instruction cache disable
-    bic r4, #(1<<2)            ; - data cache disable
-    bic r4, #(1<<0)            ; - mpu disable
-    orr r4, r4, #(1<<18)       ; - itcm enable
-    orr r4, r4, #(1<<16)       ; - dtcm enable
-    mcr p15, 0, r4, c1, c0, 0  ; write control register
-
-    ;mov r0, Thumb
-    ;bx r0
-    
-;.thumb
-;Thumb:
     
     ldr r1, =0xffff01b0
     blx r1 ; funcptr_cleardtcm
@@ -38,15 +23,6 @@ Entry:
     str r2, [r1]
 
     ldr r1, =0xffff1ff9
-
-.endarea
-
-.orga 0x48
-.word 0 ; section 0 size
-
-.orga 0x4C
-.area 4 + 0x20 + 8 ; section 0 copy method + section 0 hash + section 1 offset, address
-
     blx r1 ; funcptr_boot9init()
 
     ldr r1, =0xffff56c9
@@ -57,6 +33,15 @@ Entry:
     blx r1
 
     ldr r2, =0x08006000
+
+.endarea
+
+.orga 0x48
+.word 0 ; section 0 size
+
+.orga 0x4C
+.area 4 + 0x20 + 8 ; section 0 copy method + section 0 hash + section 1 offset, address
+
     mov r1, #0xFF
     ldr r0, =0x5C000
 
@@ -71,7 +56,7 @@ Entry:
 .orga 0x7C
 .area 4 + 0x20 + 8 ; section 1 copy method + section 1 hash + section 2 offset, address
     
-    blx r3 ; lol
+    blx r3 ; lol (readsectors returns with the address in r3)
     ; more code can go here
     
 .endarea
