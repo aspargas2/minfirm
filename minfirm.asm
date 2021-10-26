@@ -3,11 +3,11 @@
 .headersize 0x01FF8000 + 0x3B00 ; ITCM, at offset where boot9 loads firm header
 
 .area 0x10 ; firm header
-    .ascii "FIRM" ; magic
-    .word 0       ; boot priority
-    .ascii "LMAO" ; arm11 entry, we don't care if arm11 dies so just needs some nonzero 
-                  ;     for boot9 to be happy
-    .word Entry   ; arm9 entry
+.ascii "FIRM" ; magic
+.word 0       ; boot priority
+.ascii "LMAO" ; arm11 entry, we don't care if arm11 dies so just needs some nonzero 
+              ;     for boot9 to be happy
+.word Entry   ; arm9 entry
 .endarea
 
 .orga 0x10
@@ -47,6 +47,7 @@ Entry:
 
     ldr r3, =0xffff55f9
     blx r3 ; ub9_readsectors
+    blx r3 ; lol (readsectors returns with the address in r3)
 
 .endarea
 
@@ -56,7 +57,6 @@ Entry:
 .orga 0x7C
 .area 4 + 0x20 + 8 ; section 1 copy method + section 1 hash + section 2 offset, address
     
-    blx r3 ; lol (readsectors returns with the address in r3)
     ; more code can go here
     
 .endarea
