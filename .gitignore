@@ -1,2 +1,9 @@
 *.firm
 *.exe
+
+# IDA Files
+*.idb
+*.id0
+*.id1
+*.nam
+*.til
