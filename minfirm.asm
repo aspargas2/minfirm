@@ -5,7 +5,7 @@
 
 payloadsector equ (0x0B400000 / 0x200)
 nopslide_addr equ 0x1FFFA000
-nopslide_size equ 0x4000
+nopslide_size equ 0x3C00
 arm11stub_size equ (arm11stub_end - arm11stub)
 
 area0maxsize equ (0x30 + 8) ; reserved + section 0 offset, address
@@ -34,7 +34,7 @@ Entry:
     add r0, =arm11stub
     ldr r1, =(nopslide_addr + nopslide_size)
     mov r2, #arm11stub_size
-    blx 0xFFFF03F0 ; memcpy
+    blx 0xFFFF03F0 ; memcpy(src, dst, count)
 
     ; sdmmc stuff adapted from https://github.com/yellows8/unprotboot9_sdmmc
     ldr r1, =0xfff000b8
@@ -50,19 +50,17 @@ Entry:
     bl 0xffff5774 ; ub9_initdev
 
     ldr r2, =(nopslide_addr + nopslide_size)
-    add r2, #arm11stub_size
+    add r2, #(arm11stub_size + 4)
     mov r1, #1
     ldr r0, =payloadsector
 
     bl 0xffff55f8 ; ub9_readsectors
 
     ldr r6, =(nopslide_addr + nopslide_size)
-    mov r4, #4
-    add r6, #(0x40 + arm11stub_size)
-
-firmload_loop:
-    ldmia r6!, {r0, r2, r3}
-    lsr r0, #9
+    ldr r0, [r6, #(arm11stub_size + 4)]
+    ldr r1, =0x4D524946 ; "FIRM"
+    cmp r0, r1
+    bne arm9_write_reg_die
 
 endarea0:
 .endarea
@@ -73,8 +71,15 @@ endarea0:
 .orga 0x4C
 area1:
 .area area1maxsize
+
+    mov r4, #4
+    add r6, #(0x40 + arm11stub_size + 4)
+
+firmload_loop:
+    ldmia r6!, {r0, r2, r3}
     lsr r1, r3, #9
     beq firmload_skip
+    lsr r0, #9
     ldr r3, =payloadsector
     add r0, r3
     bl 0xffff55f8 ; ub9_readsectors
@@ -85,10 +90,16 @@ firmload_skip:
     bne firmload_loop
 
     ldr r0, =(nopslide_addr + nopslide_size)
-    ldr r1, [r0, #(0xC + arm11stub_size)]
+    ldr r1, [r0, #(0xC + arm11stub_size + 4)]
 
-    strh r5, [r0] ; overwrite arm11 loop with movs r0, r0
+    str r0, [r0, #arm11stub_size] ; tell arm11 to jump to its entrypoint
     bx r1 ; jump to arm9 entrypoint
+
+arm9_write_reg_die:
+    str r7, [r6, #arm11stub_size]
+
+arm9_die:
+    b arm9_die
 
 endarea1:
 .endarea
@@ -126,17 +137,33 @@ endarea3:
 area4:
 .area area4maxsize
 
-    ; more code can go here
-
 .thumb
 .align 4
 arm11stub:
-    b arm11stub ; This will get overwritten when arm9 is ready for arm11 to continue
+    ldr r0, [arm11stub_end]
+    cmp r0, #1
+    blo arm11stub
+    beq arm11stub_write_reg_die
 
-    ldr r0, [pc, #0xC] ; FIRM header will get loaded right after the stub, so this loads arm11 entrypoint
-                       ; I'd rather not hardcode the offset from PC like this but whatever
+    ldr r0, [arm11stub_end + 4 + 8] ; load arm11 entrypoint
     bx r0
 
+arm11stub_write_reg_die:
+    lsl r0, #29
+    mov sp, r0 ; place stack at the end of axiwram
+
+    ldr r3, [boot11_i2c_write_reg]
+    mov r0, #3
+    mov r1, #0x29
+    mov r2, #6
+    blx r3 ; set power LED to flashing red
+
+arm11stub_die:
+    b arm11stub_die
+
+.align 4
+boot11_i2c_write_reg:
+.word 0x000135CD
 .align 4
 arm11stub_end:
 
