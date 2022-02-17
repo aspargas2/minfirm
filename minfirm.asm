@@ -26,6 +26,8 @@ area4maxsize equ (4 + 0x20) ; section 3 copy method + section 3 hash
 area0:
 .area area0maxsize
 
+.skip 0x30 ; stupid known-plaintext XOR things. usually this could be used for code.
+
 .thumb
 Entry:
     add sp, #0x1FC ; place stack in unused ITCM, saves space over
@@ -34,6 +36,17 @@ Entry:
     add r0, =arm11stub
     ldr r1, =(nopslide_addr + nopslide_size)
     mov r2, #arm11stub_size
+
+endarea0:
+.endarea
+
+.orga 0x48
+.word 0 ; section 0 size
+
+.orga 0x4C
+area1:
+.area area1maxsize
+
     blx 0xFFFF03F0 ; memcpy(src, dst, count)
 
     ; sdmmc stuff adapted from https://github.com/yellows8/unprotboot9_sdmmc
@@ -59,18 +72,19 @@ Entry:
     ldr r6, =(nopslide_addr + nopslide_size)
     ldr r0, [r6, #(arm11stub_size + 4)] ; load magic from loaded FIRM header
     ldr r1, =0x4D524946 ; ascii "FIRM"
-    cmp r0, r1
-    bne arm9_write_reg_die ; if the FIRM magic doesn't match, die
 
-endarea0:
+endarea1:
 .endarea
 
-.orga 0x48
-.word 0 ; section 0 size
+.orga 0x78
+.word 0 ; section 1 size
 
-.orga 0x4C
-area1:
-.area area1maxsize
+.orga 0x7C
+area2:
+.area area2maxsize
+
+    cmp r0, r1
+    bne arm9_write_reg_die ; if the FIRM magic doesn't match, die
 
     mov r4, #4
     add r6, #(0x40 + arm11stub_size + 4) ; point r6 to first FIRM section header
@@ -89,30 +103,16 @@ firmload_skip:
     sub r4, #1
     bne firmload_loop
 
-    ldr r0, =(nopslide_addr + nopslide_size)
-    ldr r1, [r0, #(0xC + arm11stub_size + 4)] ; load arm9 entrypoint from FIRM header
+    ldr r2, =(nopslide_addr + nopslide_size)
+    ldr r3, [r2, #(0xC + arm11stub_size + 4)] ; load arm9 entrypoint from FIRM header
 
-    str r0, [r0, #arm11stub_size] ; tell arm11 to jump to its entrypoint
+    str r2, [r2, #arm11stub_size] ; tell arm11 to jump to its entrypoint
                                   ; the specific value written here doesn't matter, just something > 1
-    bx r1 ; jump to arm9 entrypoint
+
+    bx r3 ; jump to arm9 entrypoint
 
 arm9_write_reg_die:
     str r7, [r6, #arm11stub_size] ; tell arm11 to flash the power LED and die
-
-arm9_die:
-    b arm9_die
-
-endarea1:
-.endarea
-
-.orga 0x78
-.word 0 ; section 1 size
-
-.orga 0x7C
-area2:
-.area area2maxsize
-
-    ; more code can go here
 
 endarea2:
 .endarea
@@ -123,6 +123,9 @@ endarea2:
 .orga 0xAC
 area3:
 .area area3maxsize
+
+arm9_die:
+    b arm9_die
 
     ; more code can go here
 
