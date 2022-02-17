@@ -103,16 +103,17 @@ firmload_skip:
     sub r4, #1
     bne firmload_loop
 
-    ldr r2, =(nopslide_addr + nopslide_size)
-    ldr r3, [r2, #(0xC + arm11stub_size + 4)] ; load arm9 entrypoint from FIRM header
+    ldr r3, =(nopslide_addr + nopslide_size)
+    ldr r4, [r3, #(0xC + arm11stub_size + 4)] ; load arm9 entrypoint from FIRM header
 
-    str r2, [r2, #arm11stub_size] ; tell arm11 to jump to its entrypoint
+    str r3, [r3, #arm11stub_size] ; tell arm11 to jump to its entrypoint
                                   ; the specific value written here doesn't matter, just something > 1
 
-    bx r3 ; jump to arm9 entrypoint
+    mov r0, #0 ; 0 out argc,
+    mov r1, #0 ; argv, and
+    mov r2, #0 ; magicWord (luma uses this for entrypoint detection)
 
-arm9_write_reg_die:
-    str r7, [r6, #arm11stub_size] ; tell arm11 to flash the power LED and die
+    bx r4 ; jump to arm9 entrypoint
 
 endarea2:
 .endarea
@@ -123,6 +124,9 @@ endarea2:
 .orga 0xAC
 area3:
 .area area3maxsize
+
+arm9_write_reg_die:
+    str r7, [r6, #arm11stub_size] ; tell arm11 to flash the power LED and die
 
 arm9_die:
     b arm9_die
